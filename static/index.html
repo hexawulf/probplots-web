@@ -76,6 +76,11 @@
           <label class="text-sm">kmax<input class="border p-2 rounded w-full" name="kmax" value="12"></label>
           <button class="px-3 py-2 rounded bg-slate-900 text-white col-span-4" type="submit">P(kmin ≤ X ≤ kmax)</button>
         </form>
+        <div class="mt-2 grid grid-cols-3 gap-2">
+          <button id="btn-binom-atmost" class="px-3 py-2 rounded bg-slate-900 text-white text-sm col-span-1">P(X≤k)</button>
+          <button id="btn-binom-atleast" class="px-3 py-2 rounded bg-slate-900 text-white text-sm col-span-1">P(X≥k)</button>
+          <button id="btn-binom-between" class="px-3 py-2 rounded bg-slate-900 text-white text-sm col-span-1">P(kmin≤X≤kmax)</button>
+        </div>
         <div class="mt-3 text-xs"><pre id="r-binom" class="whitespace-pre-wrap break-all"></pre></div>
         <div class="mt-3">
           <button id="btn-binom-sim" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Binomial Simulation</button>
@@ -86,15 +91,16 @@
       <!-- POISSON -->
       <div class="p-4 rounded-xl bg-white shadow">
         <h3 class="font-semibold mb-3">Poisson</h3>
-        <form id="f-ppmf" class="grid grid-cols-2 gap-2 items-end">
+        <form id="f-pparams" class="grid grid-cols-2 gap-2 items-end">
           <label class="text-sm">λ<input class="border p-2 rounded w-full" name="lam" value="3"></label>
           <label class="text-sm">k<input class="border p-2 rounded w-full" name="k" value="2"></label>
-          <button class="px-3 py-2 rounded bg-slate-900 text-white col-span-2" type="submit">PMF/CDF</button>
         </form>
-        <div class="mt-3">
+        <div class="mt-2 flex gap-2">
+          <button id="btn-pois-pmf" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">PMF P(X=k)</button>
+          <button id="btn-pois-cdf" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">CDF P(X≤k)</button>
           <button id="btn-pois-sim" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Poisson Simulation</button>
-          <img id="img-pois" class="mt-3 rounded border hidden" alt="poisson sim"/>
         </div>
+        <img id="img-pois" class="mt-3 rounded border hidden" alt="poisson sim"/>
         <div class="mt-3 text-xs"><pre id="r-pois" class="whitespace-pre-wrap break-all"></pre></div>
       </div>
 
@@ -150,6 +156,23 @@
         <pre id="r-joint" class="mt-3 text-xs whitespace-pre-wrap break-all"></pre>
       </div>
 
+    </section>
+
+    <!-- Worked examples panel -->
+    <section class="p-4 rounded-xl bg-white shadow">
+      <h3 class="font-semibold mb-3">Worked examples</h3>
+      <div class="grid md:grid-cols-3 gap-3">
+        <button id="ex-normal" class="px-3 py-2 rounded bg-slate-900 text-white text-sm text-left">
+          Normal: Φ(1.96) and Φ⁻¹(0.975)
+        </button>
+        <button id="ex-binom" class="px-3 py-2 rounded bg-slate-900 text-white text-sm text-left">
+          Binomial: n=20, p=0.5, P(8≤X≤12)
+        </button>
+        <button id="ex-pois" class="px-3 py-2 rounded bg-slate-900 text-white text-sm text-left">
+          Poisson: λ=3, P(X=2)
+        </button>
+      </div>
+      <div class="mt-3 text-xs"><pre id="r-examples" class="whitespace-pre-wrap break-all"></pre></div>
     </section>
   </main>
 
@@ -234,15 +257,39 @@
     img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
   });
 
+  // Binomial shortcuts
+  qs('btn-binom-atmost').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-bcdf')));
+    const out = await jfetch('/api/binom/atmost?' + q.toString());
+    qs('r-binom').textContent = JSON.stringify({at_most: out.value}, null, 2);
+  });
+  qs('btn-binom-atleast').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-bcdf')));
+    const out = await jfetch('/api/binom/atleast?' + q.toString());
+    qs('r-binom').textContent = JSON.stringify({at_least: out.value}, null, 2);
+  });
+  qs('btn-binom-between').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-bcdf-range')));
+    const out = await jfetch('/api/binom/between?' + q.toString());
+    qs('r-binom').textContent = JSON.stringify({between: out.value}, null, 2);
+  });
+
   // Poisson
-  qs('f-ppmf').addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const q = new URLSearchParams(new FormData(e.target));
+  qs('btn-pois-pmf').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-pparams')));
+    const pmf = await jfetch('/api/pois/pmf?' + q.toString());
+    qs('r-pois').textContent = JSON.stringify({pmf: pmf.value}, null, 2);
+  });
+  qs('btn-pois-cdf').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-pparams')));
     const cdf = await jfetch('/api/pois/cdf?' + q.toString());
-    qs('r-pois').textContent = JSON.stringify({cdf}, null, 2);
+    const prev = qs('r-pois').textContent.trim();
+    const merged = {cdf: cdf.value};
+    try { const old = JSON.parse(prev); Object.assign(merged, old); } catch {}
+    qs('r-pois').textContent = JSON.stringify(merged, null, 2);
   });
   qs('btn-pois-sim').addEventListener('click', async ()=>{
-    const lam = new URLSearchParams(new FormData(qs('f-ppmf'))).get('lam') ?? 3;
+    const lam = new URLSearchParams(new FormData(qs('f-pparams'))).get('lam') ?? 3;
     const r = await fetch(`/plot/sim/poisson?n=50000&lam=${encodeURIComponent(lam)}&bins=50`);
     const blob = await r.blob(); const img = qs('img-pois');
     img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
@@ -281,6 +328,51 @@
     const q = new URLSearchParams(new FormData(e.target));
     const r = await fetch('/api/joint?' + q.toString());
     qs('r-joint').textContent = r.ok ? JSON.stringify(await r.json(), null, 2) : ('Error: ' + await r.text());
+  });
+
+  // Worked examples
+  qs('ex-normal').addEventListener('click', async ()=>{
+    const f1 = qs('f-ncdf'); f1.elements.x.value = 1.96; f1.elements.mu.value = 0; f1.elements.sigma.value = 1;
+    const f2 = qs('f-ninv'); f2.elements.p.value = 0.975; f2.elements.mu.value = 0; f2.elements.sigma.value = 1;
+    const cdf = await jfetch('/api/norm/cdf?' + new URLSearchParams(new FormData(f1)).toString());
+    const inv = await jfetch('/api/norm/inv?' + new URLSearchParams(new FormData(f2)).toString());
+    const steps = [
+      "Normal CDF: Φ(1.96) with μ=0, σ=1",
+      "By tables/compute: Φ(1.96) ≈ 0.9750",
+      "Inverse Normal: z such that Φ(z)=0.975 ⇒ z ≈ 1.95996"
+    ];
+    qs('r-examples').textContent =
+      "Example (Normal):\n" +
+      steps.join("\n") + "\n" +
+      "Results: Φ(1.96) = " + cdf.value + ",  Φ⁻¹(0.975) = " + inv.value;
+  });
+
+  qs('ex-binom').addEventListener('click', async ()=>{
+    const fb = qs('f-bcdf-range');
+    fb.elements.n.value = 20; fb.elements.p.value = 0.5; fb.elements.kmin.value = 8; fb.elements.kmax.value = 12;
+    const out = await jfetch('/api/binom/between?' + new URLSearchParams(new FormData(fb)).toString());
+    const steps = [
+      "Binomial(n=20,p=0.5): P(8≤X≤12)",
+      "Use CDF difference: P(X≤12) − P(X≤7)"
+    ];
+    qs('r-examples').textContent =
+      "Example (Binomial):\n" +
+      steps.join("\n") + "\n" +
+      "Result: " + out.value;
+  });
+
+  qs('ex-pois').addEventListener('click', async ()=>{
+    const fp = qs('f-pparams');
+    fp.elements.lam.value = 3; fp.elements.k.value = 2;
+    const pmf = await jfetch('/api/pois/pmf?' + new URLSearchParams(new FormData(fp)).toString());
+    const steps = [
+      "Poisson(λ=3): P(X=2)",
+      "PMF: e^{-λ} λ^k / k! = e^{-3}·3^2/2!"
+    ];
+    qs('r-examples').textContent =
+      "Example (Poisson):\n" +
+      steps.join("\n") + "\n" +
+      "Result: " + pmf.value;
   });
   </script>
 </body>
