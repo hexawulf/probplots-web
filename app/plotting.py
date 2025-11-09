@@ -1,9 +1,11 @@
 import io
+import math
 import numpy as np
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy import stats
+from scipy.stats import binom, poisson, norm
 
 def _png_bytes(fig) -> bytes:
     buf = io.BytesIO()
@@ -41,4 +43,86 @@ def plot_sim_binom(n: int, N: int, p: float, bins=50, w=960, h=480) -> bytes:
     ax.plot(xs, stats.binom.pmf(xs, N, p), linewidth=2)
     ax.set_title(f"Binomial(N={N}, p={p}) simulation (n={n})")
     ax.grid(True, alpha=0.3)
+    return _png_bytes(fig)
+
+def plot_pmf_poisson(lam: float, kmax: int | None = None) -> bytes:
+    if lam <= 0:
+        lam = 1e-9
+    if kmax is None:
+        # cover most mass (lam + ~4*sqrt(lam)), min 10, cap 10k
+        kmax = int(max(10, min(10000, math.ceil(lam + 4*math.sqrt(max(lam,1e-9))))))
+    ks = np.arange(0, kmax + 1)
+    pmf = poisson.pmf(ks, lam)
+
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.stem(ks, pmf, basefmt=" ")
+    ax.set_title(f"Poisson PMF (λ={lam:g})")
+    ax.set_xlabel("k")
+    ax.set_ylabel("P(X=k)")
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_pmf_binom(n: int, p: float) -> bytes:
+    ks = np.arange(0, n + 1)
+    pmf = binom.pmf(ks, n, p)
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.stem(ks, pmf, basefmt=" ")
+    ax.set_title(f"Binomial PMF (n={n}, p={p:g})")
+    ax.set_xlabel("k")
+    ax.set_ylabel("P(X=k)")
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_cdf_binom(n: int, p: float) -> bytes:
+    ks = np.arange(0, n + 1)
+    cdf = binom.cdf(ks, n, p)
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.step(ks, cdf, where="post")
+    ax.set_title(f"Binomial CDF (n={n}, p={p:g})")
+    ax.set_xlabel("k")
+    ax.set_ylabel("P(X≤k)")
+    ax.set_ylim(-0.02, 1.02)
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_heat_joint(pairs: dict[tuple[float,float], float]) -> bytes:
+    # Build sorted supports
+    xs = sorted({x for (x, _) in pairs})
+    ys = sorted({y for (_, y) in pairs})
+    X = {x:i for i,x in enumerate(xs)}
+    Y = {y:i for i,y in enumerate(ys)}
+    M = np.zeros((len(ys), len(xs)))  # rows: y, cols: x (for imshow)
+    for (x,y),p in pairs.items():
+        if p < 0: continue
+        M[Y[y], X[x]] += p
+
+    fig, ax = plt.subplots(figsize=(5,4))
+    im = ax.imshow(M, origin="lower", cmap="Blues")
+    ax.set_title("Joint distribution heatmap  p(x,y)")
+    ax.set_xticks(range(len(xs)), xs, rotation=0)
+    ax.set_yticks(range(len(ys)), ys)
+    fig.colorbar(im, ax=ax, shrink=0.8, label="p")
+    return _png_bytes(fig)
+
+def plot_clt(mu: float, sigma: float, n: int, lower: float, upper: float) -> bytes:
+    if sigma <= 0 or n <= 0:
+        n = max(1, n); sigma = max(1e-9, sigma)
+    mu_bar = mu
+    sigma_bar = sigma / math.sqrt(n)
+
+    # x range around mean
+    xs = np.linspace(mu_bar - 4*sigma_bar, mu_bar + 4*sigma_bar, 600)
+    pdf = norm.pdf(xs, loc=mu_bar, scale=sigma_bar)
+
+    fig, ax = plt.subplots(figsize=(6,3.5))
+    ax.plot(xs, pdf)
+    ax.set_title(f"CLT: X̄ ~ N(μ={mu_bar:g}, σ={sigma_bar:g})")
+    ax.set_xlabel("x")
+    ax.set_ylabel("density")
+    ax.grid(True, alpha=0.2)
+
+    # Shade [lower, upper]
+    L, U = min(lower, upper), max(lower, upper)
+    mask = (xs>=L) & (xs<=U)
+    ax.fill_between(xs[mask], 0, pdf[mask], alpha=0.3)
     return _png_bytes(fig)

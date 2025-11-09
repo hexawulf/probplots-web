@@ -7,7 +7,11 @@ from .dlbdss_core import (
     norm_cdf, norm_inv, exp_cdf, unif_cdf, clt
 )
 # plotting
-from .plotting import plot_normal_pdf, plot_sim_poisson, plot_sim_binom
+from .plotting import (
+    plot_normal_pdf, plot_sim_poisson, plot_sim_binom,
+    plot_pmf_poisson, plot_pmf_binom, plot_cdf_binom,
+    plot_heat_joint, plot_clt
+)
 
 # scipy for direct PMF/CDF access
 from scipy.stats import poisson, binom
@@ -202,6 +206,68 @@ def http_plot_sim_pois(n: int = 50000, lam: float = 3.0, bins: int = 50):
 def http_plot_sim_binom(n: int = 50000, N: int = 20, p: float = 0.3, bins: int = 50):
     try:
         png = plot_sim_binom(n, N, p, bins=bins)
+        return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/pmf/poisson")
+def plot_pmf_poisson_ep(
+    lam: float = Query(..., gt=0),
+    kmax: int | None = Query(None, ge=0),
+):
+    try:
+        png = plot_pmf_poisson(lam, kmax)
+        return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/pmf/binom")
+def plot_pmf_binom_ep(
+    n: int = Query(..., ge=0),
+    p: float = Query(..., ge=0, le=1),
+):
+    try:
+        png = plot_pmf_binom(n, p)
+        return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/cdf/binom")
+def plot_cdf_binom_ep(
+    n: int = Query(..., ge=0),
+    p: float = Query(..., ge=0, le=1),
+):
+    try:
+        png = plot_cdf_binom(n, p)
+        return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/heat/joint")
+def plot_heat_joint_ep(
+    pairs: str = Query(..., description="x,y,p;..."),
+):
+    try:
+        # Parse same as /api/joint
+        def _parse_pairs(s: str):
+            out = {}
+            for chunk in s.split(";"):
+                if not chunk.strip(): continue
+                x,y,p = map(float, chunk.split(","))
+                out[(x,y)] = out.get((x,y), 0.0) + p
+            return out
+        joint = _parse_pairs(pairs)
+        png = plot_heat_joint(joint)
+        return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/clt")
+def plot_clt_ep(
+    mu: float, sigma: float, n: int, lower: float, upper: float
+):
+    try:
+        png = plot_clt(mu, sigma, n, lower, upper)
         return Response(content=png, media_type="image/png")
     except Exception as e:
         _bad(e)
