@@ -9,6 +9,9 @@ from .dlbdss_core import (
 # plotting
 from .plotting import plot_normal_pdf, plot_sim_poisson, plot_sim_binom
 
+# scipy for direct PMF/CDF access
+from scipy.stats import poisson, binom
+
 # ===== Local helper import with sandbox stub =====
 import os, sys
 sys.path.insert(0, "/home/zk/projects/probplots")
@@ -97,6 +100,67 @@ def api_unif_cdf(a: float, b: float, x: float):
 def api_clt(mu: float, sigma: float, n: int, lower: float, upper: float):
     try: return {"value": clt(mu, sigma, n, lower, upper)}
     except Exception as e: _bad(e)
+
+# ---- validation helpers ----
+def _ensure_prob(p: float, name="p"):
+    if not (0.0 <= p <= 1.0):
+        raise HTTPException(status_code=400, detail=f"{name} must be in [0,1]")
+
+def _ensure_nonneg_int(x: int, name="k"):
+    if x < 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be ≥ 0")
+
+def _ensure_pos(x: float, name="value"):
+    if x <= 0:
+        raise HTTPException(status_code=400, detail=f"{name} must be > 0")
+
+# ---- poisson PMF ----
+@app.get("/api/pois/pmf")
+def pois_pmf(
+    lam: float = Query(..., description="λ > 0"),
+    k: int = Query(..., ge=0, description="k ≥ 0"),
+):
+    _ensure_pos(lam, "lam"); _ensure_nonneg_int(k, "k")
+    val = float(poisson.pmf(k, lam))
+    return {"value": val}
+
+# ---- binomial shortcuts ----
+@app.get("/api/binom/atmost")
+def binom_atmost(
+    n: int = Query(..., ge=0),
+    p: float = Query(..., description="0≤p≤1"),
+    k: int = Query(..., ge=0),
+):
+    _ensure_prob(p); _ensure_nonneg_int(k, "k")
+    # P(X ≤ k)
+    val = float(binom.cdf(k, n, p))
+    return {"value": val}
+
+@app.get("/api/binom/atleast")
+def binom_atleast(
+    n: int = Query(..., ge=0),
+    p: float = Query(..., description="0≤p≤1"),
+    k: int = Query(..., ge=0),
+):
+    _ensure_prob(p); _ensure_nonneg_int(k, "k")
+    # P(X ≥ k) = 1 - P(X ≤ k-1)
+    val = float(1.0 - binom.cdf(k - 1, n, p)) if k > 0 else 1.0
+    return {"value": val}
+
+@app.get("/api/binom/between")
+def binom_between(
+    n: int = Query(..., ge=0),
+    p: float = Query(..., description="0≤p≤1"),
+    kmin: int = Query(..., ge=0),
+    kmax: int = Query(..., ge=0),
+):
+    _ensure_prob(p); _ensure_nonneg_int(kmin, "kmin"); _ensure_nonneg_int(kmax, "kmax")
+    if kmin > kmax:
+        raise HTTPException(status_code=400, detail="kmin must be ≤ kmax")
+    # P(kmin ≤ X ≤ kmax) = CDF(kmax) - CDF(kmin-1)
+    left = float(binom.cdf(kmax, n, p))
+    right = float(binom.cdf(kmin - 1, n, p)) if kmin > 0 else 0.0
+    return {"value": left - right}
 
 # ---- joint endpoint ----
 @app.get("/api/joint")
