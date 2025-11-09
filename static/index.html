@@ -250,9 +250,14 @@
   qs('btn-npdf').addEventListener('click', async ()=>{
     const mu = new URLSearchParams(new FormData(qs('f-ncdf'))).get('mu') ?? 0;
     const sigma = new URLSearchParams(new FormData(qs('f-ncdf'))).get('sigma') ?? 1;
-    const r = await fetch(`/plot/pdf/normal?mu=${mu}&sigma=${sigma}`);
-    const blob = await r.blob(); const img = qs('img-npdf');
-    img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
+    const img = qs('img-npdf');
+    img.src = `/plot/png/normal?mu=${encodeURIComponent(mu)}&sigma=${encodeURIComponent(sigma)}&_=${Date.now()}`;
+    img.onerror = async ()=>{ // fallback to legacy endpoint
+      const r = await fetch(`/plot/pdf/normal?mu=${mu}&sigma=${sigma}`);
+      const blob = await r.blob();
+      img.src = URL.createObjectURL(blob);
+    };
+    img.classList.remove('hidden');
   });
 
   // Binomial
@@ -275,9 +280,14 @@
     const params = new URLSearchParams(new FormData(qs('f-bpmf')));
     const N = params.get('n') ?? 20;
     const p = params.get('p') ?? 0.5;
-    const r = await fetch(`/plot/sim/binom?n=50000&N=${encodeURIComponent(N)}&p=${encodeURIComponent(p)}&bins=50`);
-    const blob = await r.blob(); const img = qs('img-binom');
-    img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
+    const img = qs('img-binom');
+    img.src = `/plot/png/binomial_sim?n=50000&N=${encodeURIComponent(N)}&p=${encodeURIComponent(p)}&bins=50&_=${Date.now()}`;
+    img.onerror = async ()=>{ // fallback
+      const r = await fetch(`/plot/sim/binom?n=50000&N=${encodeURIComponent(N)}&p=${encodeURIComponent(p)}&bins=50`);
+      const blob = await r.blob();
+      img.src = URL.createObjectURL(blob);
+    };
+    img.classList.remove('hidden');
   });
 
   // Binomial PMF/CDF plots
@@ -285,13 +295,25 @@
     const fb = qs('f-bpmf');
     const q = new URLSearchParams(new FormData(fb));
     q.delete('k');
-    await fetchPNG('/plot/pmf/binom?' + q.toString(), 'img-binom-plot');
+    q.append('_', Date.now());
+    const img = qs('img-binom-plot');
+    img.src = '/plot/png/binomial_pmf?' + q.toString();
+    img.onerror = async ()=>{ // fallback
+      await fetchPNG('/plot/pmf/binom?' + q.toString(), 'img-binom-plot');
+    };
+    img.classList.remove('hidden');
   });
   qs('btn-binom-cdf-plot').addEventListener('click', async ()=>{
     const fb = qs('f-bpmf');
     const q = new URLSearchParams(new FormData(fb));
     q.delete('k');
-    await fetchPNG('/plot/cdf/binom?' + q.toString(), 'img-binom-plot');
+    q.append('_', Date.now());
+    const img = qs('img-binom-plot');
+    img.src = '/plot/png/binomial_cdf?' + q.toString();
+    img.onerror = async ()=>{ // fallback
+      await fetchPNG('/plot/cdf/binom?' + q.toString(), 'img-binom-plot');
+    };
+    img.classList.remove('hidden');
   });
 
   // Binomial shortcuts
@@ -327,16 +349,27 @@
   });
   qs('btn-pois-sim').addEventListener('click', async ()=>{
     const lam = new URLSearchParams(new FormData(qs('f-pparams'))).get('lam') ?? 3;
-    const r = await fetch(`/plot/sim/poisson?n=50000&lam=${encodeURIComponent(lam)}&bins=50`);
-    const blob = await r.blob(); const img = qs('img-pois');
-    img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
+    const img = qs('img-pois');
+    img.src = `/plot/png/poisson_sim?n=50000&lam=${encodeURIComponent(lam)}&bins=50&_=${Date.now()}`;
+    img.onerror = async ()=>{ // fallback
+      const r = await fetch(`/plot/sim/poisson?n=50000&lam=${encodeURIComponent(lam)}&bins=50`);
+      const blob = await r.blob();
+      img.src = URL.createObjectURL(blob);
+    };
+    img.classList.remove('hidden');
   });
 
   // Poisson exact PMF
   qs('btn-pois-pmf-exact').addEventListener('click', async ()=>{
     const q = new URLSearchParams(new FormData(qs('f-pparams')));
-    q.delete('k'); // only need lam for the plot
-    await fetchPNG('/plot/pmf/poisson?' + q.toString(), 'img-pois');
+    q.delete('k');
+    q.append('_', Date.now());
+    const img = qs('img-pois');
+    img.src = '/plot/png/poisson_pmf?' + q.toString();
+    img.onerror = async ()=>{ // fallback
+      await fetchPNG('/plot/pmf/poisson?' + q.toString(), 'img-pois');
+    };
+    img.classList.remove('hidden');
   });
 
   // Geometric / Exponential / Uniform
@@ -370,7 +403,13 @@
   qs('btn-clt-plot').addEventListener('click', async ()=>{
     const f = qs('f-clt');
     const q = new URLSearchParams(new FormData(f));
-    await fetchPNG('/plot/clt?' + q.toString(), 'img-clt');
+    q.append('_', Date.now());
+    const img = qs('img-clt');
+    img.src = '/plot/png/clt?' + q.toString();
+    img.onerror = async ()=>{ // fallback
+      await fetchPNG('/plot/clt?' + q.toString(), 'img-clt');
+    };
+    img.classList.remove('hidden');
   });
 
   // Joint
@@ -385,7 +424,13 @@
   qs('btn-joint-heat').addEventListener('click', async ()=>{
     const fj = qs('f-joint');
     const q = new URLSearchParams(new FormData(fj));
-    await fetchPNG('/plot/heat/joint?' + q.toString(), 'img-joint-heat');
+    q.append('_', Date.now());
+    const img = qs('img-joint-heat');
+    img.src = '/plot/png/joint_discrete?' + q.toString();
+    img.onerror = async ()=>{ // fallback
+      await fetchPNG('/plot/heat/joint?' + q.toString(), 'img-joint-heat');
+    };
+    img.classList.remove('hidden');
   });
 
   // Worked examples
