@@ -82,6 +82,11 @@
           <button id="btn-binom-between" class="px-3 py-2 rounded bg-slate-900 text-white text-sm col-span-1">P(kmin≤X≤kmax)</button>
         </div>
         <div class="mt-3 text-xs"><pre id="r-binom" class="whitespace-pre-wrap break-all"></pre></div>
+        <div class="mt-2 flex gap-2">
+          <button id="btn-binom-pmf-plot" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Binomial PMF</button>
+          <button id="btn-binom-cdf-plot" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Binomial CDF</button>
+        </div>
+        <img id="img-binom-plot" class="mt-3 rounded border hidden" alt="binomial plot"/>
         <div class="mt-3">
           <button id="btn-binom-sim" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Binomial Simulation</button>
           <img id="img-binom" class="mt-3 rounded border hidden" alt="binomial sim"/>
@@ -98,6 +103,9 @@
         <div class="mt-2 flex gap-2">
           <button id="btn-pois-pmf" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">PMF P(X=k)</button>
           <button id="btn-pois-cdf" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">CDF P(X≤k)</button>
+        </div>
+        <div class="mt-2 flex gap-2">
+          <button id="btn-pois-pmf-exact" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Poisson PMF (exact)</button>
           <button id="btn-pois-sim" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Poisson Simulation</button>
         </div>
         <img id="img-pois" class="mt-3 rounded border hidden" alt="poisson sim"/>
@@ -142,6 +150,10 @@
           <button class="px-3 py-2 rounded bg-slate-900 text-white col-span-5" type="submit">Compute</button>
         </form>
         <div class="mt-3 text-xs"><pre id="r-clt" class="whitespace-pre-wrap break-all"></pre></div>
+        <div class="mt-2">
+          <button id="btn-clt-plot" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show CLT Area</button>
+          <img id="img-clt" class="mt-3 rounded border hidden" alt="clt area"/>
+        </div>
       </div>
 
       <!-- JOINT -->
@@ -154,6 +166,10 @@
           <button class="mt-3 px-3 py-2 rounded bg-slate-900 text-white">Compute</button>
         </form>
         <pre id="r-joint" class="mt-3 text-xs whitespace-pre-wrap break-all"></pre>
+        <div class="mt-2">
+          <button id="btn-joint-heat" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Heatmap</button>
+          <img id="img-joint-heat" class="mt-3 rounded border hidden" alt="joint heatmap"/>
+        </div>
       </div>
 
     </section>
@@ -202,6 +218,13 @@
   <script>
   async function jfetch(url){ const r = await fetch(url); if(!r.ok) throw new Error(await r.text()); return r.json(); }
   function qs(id){ return document.getElementById(id); }
+  async function fetchPNG(url, imgId){
+    const r = await fetch(url);
+    const blob = await r.blob();
+    const img = document.getElementById(imgId);
+    img.src = URL.createObjectURL(blob);
+    img.classList.remove('hidden');
+  }
 
   // About modal
   const overlay = qs('about-overlay'), modal = qs('about-modal');
@@ -257,6 +280,20 @@
     img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
   });
 
+  // Binomial PMF/CDF plots
+  qs('btn-binom-pmf-plot').addEventListener('click', async ()=>{
+    const fb = qs('f-bpmf');
+    const q = new URLSearchParams(new FormData(fb));
+    q.delete('k');
+    await fetchPNG('/plot/pmf/binom?' + q.toString(), 'img-binom-plot');
+  });
+  qs('btn-binom-cdf-plot').addEventListener('click', async ()=>{
+    const fb = qs('f-bpmf');
+    const q = new URLSearchParams(new FormData(fb));
+    q.delete('k');
+    await fetchPNG('/plot/cdf/binom?' + q.toString(), 'img-binom-plot');
+  });
+
   // Binomial shortcuts
   qs('btn-binom-atmost').addEventListener('click', async ()=>{
     const q = new URLSearchParams(new FormData(qs('f-bcdf')));
@@ -295,6 +332,13 @@
     img.src = URL.createObjectURL(blob); img.classList.remove('hidden');
   });
 
+  // Poisson exact PMF
+  qs('btn-pois-pmf-exact').addEventListener('click', async ()=>{
+    const q = new URLSearchParams(new FormData(qs('f-pparams')));
+    q.delete('k'); // only need lam for the plot
+    await fetchPNG('/plot/pmf/poisson?' + q.toString(), 'img-pois');
+  });
+
   // Geometric / Exponential / Uniform
   qs('f-geom').addEventListener('submit', async (e)=>{
     e.preventDefault();
@@ -322,12 +366,26 @@
     qs('r-clt').textContent = JSON.stringify(await jfetch('/api/clt?' + q.toString()), null, 2);
   });
 
+  // CLT shaded area
+  qs('btn-clt-plot').addEventListener('click', async ()=>{
+    const f = qs('f-clt');
+    const q = new URLSearchParams(new FormData(f));
+    await fetchPNG('/plot/clt?' + q.toString(), 'img-clt');
+  });
+
   // Joint
   qs('f-joint').addEventListener('submit', async (e)=>{
     e.preventDefault();
     const q = new URLSearchParams(new FormData(e.target));
     const r = await fetch('/api/joint?' + q.toString());
     qs('r-joint').textContent = r.ok ? JSON.stringify(await r.json(), null, 2) : ('Error: ' + await r.text());
+  });
+
+  // Joint heatmap
+  qs('btn-joint-heat').addEventListener('click', async ()=>{
+    const fj = qs('f-joint');
+    const q = new URLSearchParams(new FormData(fj));
+    await fetchPNG('/plot/heat/joint?' + q.toString(), 'img-joint-heat');
   });
 
   // Worked examples
