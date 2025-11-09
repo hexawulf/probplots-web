@@ -31,6 +31,15 @@ except Exception:
 
 app = FastAPI(title="probplots-web", version="0.2")
 
+@app.get("/about")
+def about():
+    return {
+        "app": "probplots-web",
+        "version": "0.2",
+        "bind": "127.0.0.1:5009"
+    }
+
+
 def _bad(e: Exception):
     raise HTTPException(status_code=400, detail=str(e))
 
