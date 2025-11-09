@@ -10,7 +10,9 @@ from .dlbdss_core import (
 from .plotting import (
     plot_normal_pdf, plot_sim_poisson, plot_sim_binom,
     plot_pmf_poisson, plot_pmf_binom, plot_cdf_binom,
-    plot_heat_joint, plot_clt
+    plot_heat_joint, plot_clt, plot_poisson_cdf,
+    plot_geometric_pmf, plot_exponential_pdf, plot_exponential_cdf,
+    plot_uniform_pdf, plot_uniform_cdf
 )
 
 # scipy for direct PMF/CDF access
@@ -269,6 +271,113 @@ def plot_clt_ep(
     try:
         png = plot_clt(mu, sigma, n, lower, upper)
         return Response(content=png, media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+# ---- NEW: Universal /plot/png/* endpoints ----
+@app.get("/plot/png/normal")
+def png_normal(mu: float = 0.0, sigma: float = 1.0):
+    try:
+        return Response(content=plot_normal_pdf(mu, sigma), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/binomial_pmf")
+def png_binomial_pmf(n: int = Query(..., ge=0), p: float = Query(..., ge=0, le=1)):
+    try:
+        return Response(content=plot_pmf_binom(n, p), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/binomial_cdf")
+def png_binomial_cdf(n: int = Query(..., ge=0), p: float = Query(..., ge=0, le=1)):
+    try:
+        return Response(content=plot_cdf_binom(n, p), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/binomial_sim")
+def png_binomial_sim(n: int = 50000, N: int = 20, p: float = 0.3, bins: int = 50):
+    try:
+        return Response(content=plot_sim_binom(n, N, p, bins=bins), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/poisson_pmf")
+def png_poisson_pmf(lam: float = Query(..., gt=0), kmax: int | None = Query(None, ge=0)):
+    try:
+        return Response(content=plot_pmf_poisson(lam, kmax), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/poisson_cdf")
+def png_poisson_cdf(lam: float = Query(..., gt=0), kmax: int | None = Query(None, ge=0)):
+    try:
+        return Response(content=plot_poisson_cdf(lam, kmax), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/poisson_sim")
+def png_poisson_sim(n: int = 50000, lam: float = 3.0, bins: int = 50):
+    try:
+        return Response(content=plot_sim_poisson(n, lam, bins=bins), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/geometric_pmf")
+def png_geometric_pmf(p: float = Query(..., ge=0, le=1), kmax: int = 20):
+    try:
+        return Response(content=plot_geometric_pmf(p, kmax), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/exponential_pdf")
+def png_exponential_pdf(lam: float = Query(..., gt=0), xmax: float | None = None):
+    try:
+        return Response(content=plot_exponential_pdf(lam, xmax), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/exponential_cdf")
+def png_exponential_cdf(lam: float = Query(..., gt=0), xmax: float | None = None):
+    try:
+        return Response(content=plot_exponential_cdf(lam, xmax), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/uniform_pdf")
+def png_uniform_pdf(a: float = 0.0, b: float = 10.0):
+    try:
+        return Response(content=plot_uniform_pdf(a, b), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/uniform_cdf")
+def png_uniform_cdf(a: float = 0.0, b: float = 10.0):
+    try:
+        return Response(content=plot_uniform_cdf(a, b), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/clt")
+def png_clt(mu: float, sigma: float, n: int, lower: float, upper: float):
+    try:
+        return Response(content=plot_clt(mu, sigma, n, lower, upper), media_type="image/png")
+    except Exception as e:
+        _bad(e)
+
+@app.get("/plot/png/joint_discrete")
+def png_joint_discrete(pairs: str = Query(..., description="x,y,p;...")):
+    try:
+        def _parse_pairs(s: str):
+            out = {}
+            for chunk in s.split(";"):
+                if not chunk.strip(): continue
+                x,y,p = map(float, chunk.split(","))
+                out[(x,y)] = out.get((x,y), 0.0) + p
+            return out
+        joint = _parse_pairs(pairs)
+        return Response(content=plot_heat_joint(joint), media_type="image/png")
     except Exception as e:
         _bad(e)
 

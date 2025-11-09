@@ -126,3 +126,97 @@ def plot_clt(mu: float, sigma: float, n: int, lower: float, upper: float) -> byt
     mask = (xs>=L) & (xs<=U)
     ax.fill_between(xs[mask], 0, pdf[mask], alpha=0.3)
     return _png_bytes(fig)
+
+def plot_poisson_cdf(lam: float, kmax: int | None = None) -> bytes:
+    if lam <= 0:
+        lam = 1e-9
+    if kmax is None:
+        kmax = int(max(10, min(10000, math.ceil(lam + 4*math.sqrt(max(lam,1e-9))))))
+    ks = np.arange(0, kmax + 1)
+    cdf = poisson.cdf(ks, lam)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.step(ks, cdf, where="post")
+    ax.set_title(f"Poisson CDF (λ={lam:g})")
+    ax.set_xlabel("k")
+    ax.set_ylabel("P(X≤k)")
+    ax.set_ylim(-0.02, 1.02)
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_geometric_pmf(p: float, kmax: int = 20) -> bytes:
+    from scipy.stats import geom
+    ks = np.arange(0, kmax + 1)
+    pmf = geom.pmf(ks, p)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.stem(ks, pmf, basefmt=" ")
+    ax.set_title(f"Geometric PMF (p={p:g})")
+    ax.set_xlabel("k (failures before success)")
+    ax.set_ylabel("P(X=k)")
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_exponential_pdf(lam: float, xmax: float | None = None) -> bytes:
+    from scipy.stats import expon
+    if lam <= 0:
+        lam = 1e-9
+    if xmax is None:
+        xmax = 5.0 / lam
+    xs = np.linspace(0, xmax, 400)
+    pdf = expon.pdf(xs, scale=1.0/lam)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(xs, pdf, linewidth=2)
+    ax.set_title(f"Exponential PDF (λ={lam:g})")
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_exponential_cdf(lam: float, xmax: float | None = None) -> bytes:
+    from scipy.stats import expon
+    if lam <= 0:
+        lam = 1e-9
+    if xmax is None:
+        xmax = 5.0 / lam
+    xs = np.linspace(0, xmax, 400)
+    cdf = expon.cdf(xs, scale=1.0/lam)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(xs, cdf, linewidth=2)
+    ax.set_title(f"Exponential CDF (λ={lam:g})")
+    ax.set_xlabel("x")
+    ax.set_ylabel("F(x)")
+    ax.set_ylim(-0.02, 1.02)
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_uniform_pdf(a: float, b: float) -> bytes:
+    xs = np.linspace(a - (b-a)*0.2, b + (b-a)*0.2, 400)
+    ys = np.where((xs >= a) & (xs <= b), 1.0/(b-a), 0.0)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(xs, ys, linewidth=2)
+    ax.set_title(f"Uniform PDF [a={a:g}, b={b:g}]")
+    ax.set_xlabel("x")
+    ax.set_ylabel("f(x)")
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
+
+def plot_uniform_cdf(a: float, b: float) -> bytes:
+    xs = np.linspace(a - (b-a)*0.2, b + (b-a)*0.2, 400)
+    ys = np.zeros_like(xs)
+    ys[xs < a] = 0.0
+    ys[xs > b] = 1.0
+    mask = (xs >= a) & (xs <= b)
+    ys[mask] = (xs[mask] - a) / (b - a)
+    
+    fig, ax = plt.subplots(figsize=(6,3))
+    ax.plot(xs, ys, linewidth=2)
+    ax.set_title(f"Uniform CDF [a={a:g}, b={b:g}]")
+    ax.set_xlabel("x")
+    ax.set_ylabel("F(x)")
+    ax.set_ylim(-0.02, 1.02)
+    ax.grid(True, alpha=0.2)
+    return _png_bytes(fig)
