@@ -1,0 +1,125 @@
+# =========================
+# probplots.piapps.dev  (SPA served by FastAPI; same-origin calls under /api)
+# =========================
+
+# --- Strict CORS allowlist (only relevant if you ever call across origins)
+# Same-origin (https://probplots.piapps.dev) needs no CORS; this is a safety net.
+map $http_origin $cors_allow_probplots {
+  default "";
+  "~^https://probplots\.piapps\.dev$"  $http_origin;
+  "~^https://(www\.)?containeryard\.org$" $http_origin;   # optional: remove if not needed
+}
+
+# --- HTTP → HTTPS
+server {
+  listen 80;
+  server_name probplots.piapps.dev;
+  return 301 https://$host$request_uri;
+}
+
+# --- HTTPS
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name probplots.piapps.dev;
+
+  # TLS (reuse the same cert bundle you use for container.piapps.dev)
+  ssl_certificate     /etc/letsencrypt/live/piapps.dev-0001/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/piapps.dev-0001/privkey.pem;
+  include /etc/letsencrypt/options-ssl-nginx.conf;
+  ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+  # Real client IPs behind Cloudflare
+  include /etc/nginx/conf.d/cloudflare_real_ip.conf;
+
+  # HSTS
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+  # --- API (FIRST)
+  # FastAPI listens on 127.0.0.1:5009 and serves both /api/* and the SPA index at /
+  location /api/ {
+    # CORS (only matters if cross-origin ever used)
+    add_header Access-Control-Allow-Origin $cors_allow_probplots always;
+    add_header Access-Control-Allow-Credentials "true" always;
+    add_header Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-CSRF-Token" always;
+    add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+    add_header Vary "Origin" always;
+
+    # Preflight
+    if ($request_method = OPTIONS) { return 204; }
+
+    # Upstream
+    proxy_pass http://127.0.0.1:5009;
+    proxy_http_version 1.1;
+
+    # WebSocket-friendly (harmless for normal HTTP)
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+
+    # Forward standard headers
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host  $host;
+    proxy_set_header X-Forwarded-Port  443;
+
+    # Forward Origin if backend wants it
+    proxy_set_header Origin $http_origin;
+
+    # Reasonable API timeouts
+    proxy_read_timeout    75s;
+    proxy_send_timeout    75s;
+    proxy_connect_timeout 15s;
+
+    client_max_body_size  10m;
+  }
+
+  # --- Health passthrough (backend JSON), exact-match
+  location = /health {
+    proxy_pass http://127.0.0.1:5009/healthz;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    expires off;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    add_header Pragma "no-cache" always;
+    add_header Expires "0" always;
+  }
+
+  # --- Lightweight edge health (always-200, uncacheable)
+  location = /healthz {
+    default_type application/json;
+    add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+    add_header Pragma "no-cache" always;
+    add_header Expires "0" always;
+    return 200 '{"status":"ok","host":"$hostname","time":"$time_iso8601"}';
+  }
+
+  # --- SPA catch-all proxied to FastAPI (serves / and static/index.html)
+  location / {
+    add_header Cache-Control "no-cache";
+    proxy_pass http://127.0.0.1:5009;
+    proxy_http_version 1.1;
+
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  # Hardening: block dotfiles and common secrets
+  location ~* (?i)(^|/)(\.env|\.git|\.htaccess|\.DS_Store|\.aws|credentials|composer\.json)$ { return 403; }
+  location ~* (?i)\.(ya?ml|ini|sql|bak|old|log|config)$ { return 403; }
+
+  access_log /var/log/nginx/probplots.piapps.dev.access.log;
+  error_log  /var/log/nginx/probplots.piapps.dev.error.log warn;
+}

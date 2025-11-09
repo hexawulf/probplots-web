@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>probplots-web</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <main class="max-w-5xl mx-auto p-6 space-y-6">
+    <header class="flex items-center justify-between">
+      <h1 class="text-2xl font-bold">probplots-web</h1>
+      <a href="/healthz" class="text-xs underline">/healthz</a>
+    </header>
+
+    <section class="grid md:grid-cols-2 gap-6">
+      <form id="f-joint" class="p-4 rounded-xl bg-white shadow">
+        <h3 class="font-semibold mb-2">Joint (discrete)</h3>
+        <p class="text-xs text-slate-500 mb-2">pairs: x,y,p;... (sum to 1)</p>
+        <input class="border p-2 rounded w-full" name="pairs"
+               value="0,0,0.1;0,1,0.2;1,0,0.3;1,1,0.4">
+        <button class="mt-3 px-3 py-2 rounded bg-slate-900 text-white">Compute</button>
+        <pre id="r-joint" class="mt-3 text-xs whitespace-pre-wrap break-all"></pre>
+      </form>
+
+      <div class="p-4 rounded-xl bg-white shadow">
+        <h3 class="font-semibold mb-2">Quick checks</h3>
+        <div class="space-x-2">
+          <button id="btn-ncdf" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Normal CDF(1.96)</button>
+          <button id="btn-plot" class="px-3 py-2 rounded bg-slate-900 text-white text-sm">Show Normal PDF</button>
+        </div>
+        <pre id="r-ncdf" class="mt-3 text-xs"></pre>
+        <img id="img-pdf" class="mt-3 rounded border hidden" alt="normal pdf"/>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      const f = document.getElementById('f-joint');
+      const out = document.getElementById('r-joint');
+      f.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        out.textContent = '...';
+        const q = new URLSearchParams(new FormData(f));
+        const r = await fetch('/api/joint?' + q.toString());
+        out.textContent = r.ok ? JSON.stringify(await r.json(), null, 2) : ('Error: ' + await r.text());
+      });
+
+      const btnNcdf = document.getElementById('btn-ncdf');
+      const btnPlot = document.getElementById('btn-plot');
+      const rNcdf = document.getElementById('r-ncdf');
+      const img = document.getElementById('img-pdf');
+
+      btnNcdf.addEventListener('click', async () => {
+        rNcdf.textContent = '...';
+        const r = await fetch('/api/norm/cdf?x=1.96&mu=0&sigma=1');
+        const j = await r.json();
+        rNcdf.textContent = JSON.stringify(j);
+      });
+
+      btnPlot.addEventListener('click', async () => {
+        const r = await fetch('/plot/pdf/normal?mu=0&sigma=1');
+        const blob = await r.blob();
+        img.src = URL.createObjectURL(blob);
+        img.classList.remove('hidden');
+      });
+    })();
+  </script>
+</body>
+</html>
