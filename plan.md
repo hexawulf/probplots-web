@@ -197,12 +197,9 @@ def plot_sim_binom(n: int, N: int, p: float, bins=50, w=960, h=480) -> bytes:
 
 ### 4.4 `app/api.py`
 
-FastAPI app; GET-only; import the local `probplots` helper for joints.
 
-```python
 from fastapi import FastAPI, Query, HTTPException, Response
 from fastapi.responses import JSONResponse, HTMLResponse
-import io
 
 # numeric functions
 from .dlbdss_core import (
@@ -212,10 +209,25 @@ from .dlbdss_core import (
 # plotting
 from .plotting import plot_normal_pdf, plot_sim_poisson, plot_sim_binom
 
-# import probplots project for joint distributions
-import sys
+# ===== Local helper import with sandbox stub =====
+import os, sys
 sys.path.insert(0, "/home/zk/projects/probplots")
-from stats_helper import compute_joint_stats
+try:
+    from stats_helper import compute_joint_stats  # real implementation on the Pi
+except Exception:
+    # Optional sandbox stub so remote runners can start the server without your local repo
+    def compute_joint_stats(joint):
+        if os.environ.get("PROBPLOTS_STUB") == "1":
+            xs = sorted({x for (x, _) in joint})
+            ys = sorted({y for (_, y) in joint})
+            return {
+                "support_X": xs, "support_Y": ys,
+                "joint": [{"x": x, "y": y, "p": p} for (x, y), p in sorted(joint.items())],
+                "marginal_X": {}, "marginal_Y": {}, "independent": False,
+                "E": {"EX": 0.0, "EY": 0.0}, "Var": {"VarX": 0.0, "VarY": 0.0},
+                "Cov": 0.0, "Corr": None
+            }
+        raise
 
 app = FastAPI(title="probplots-web", version="0.2")
 
@@ -324,10 +336,9 @@ def http_plot_sim_binom(n: int = 50000, N: int = 20, p: float = 0.3, bins: int =
 # ---- root serves static index ----
 @app.get("/", response_class=HTMLResponse)
 def root():
-    # This file is small; return from disk to keep it simple
     with open("/home/zk/projects/probplots-web/static/index.html", "r", encoding="utf-8") as f:
         return f.read()
-```
+
 
 ### 4.5 `static/index.html`
 
